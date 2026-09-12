@@ -1,109 +1,116 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowDown, Copy, Download, Menu, Share2, Sparkles, X } from "lucide-react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { Download, ImagePlus, Menu, RefreshCw, Share2, Sparkles, X, Zap } from "lucide-react";
 
-const milestones = [
-  { at: 10, label: "Eyes open", face: "◉‿◉" },
-  { at: 25, label: "Ears online", face: "ᕙ(⇀‸↼)ᕗ" },
-  { at: 50, label: "Full voltage", face: "⚡ᴗ⚡" },
-  { at: 100, label: "Maximum noise", face: "✦ᴗ✦" },
+const themes = [
+  { name: "Acid", colors: ["#d7ff21", "#59ee65", "#7a28e8"] },
+  { name: "Laser", colors: ["#ff37c7", "#754cff", "#171022"] },
+  { name: "Voltage", colors: ["#22e6ff", "#9bff18", "#241249"] },
+  { name: "Sunburst", colors: ["#fff720", "#ff7a18", "#7b24ef"] },
 ];
-
-const memeLines = ["I HEARD A MEME.", "LOUDER, INTERNET.", "SMALL CREATURE. BIG NOISE.", "THE TIMELINE NEEDED THIS."];
+const lines = ["MAKE SOME NOISE", "TOO LOUD TO IGNORE", "THE TIMELINE WOKE ME", "SMALL CREATURE. BIG ENERGY.", "PLIM. POST. REPEAT."];
 
 export default function Home() {
-  const [noise, setNoise] = useState(0);
-  const [burst, setBurst] = useState<number[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [memeText, setMemeText] = useState(memeLines[0]);
+  const [headline, setHeadline] = useState(lines[0]);
+  const [footer, setFooter] = useState("$PLIMZO • ROBINHOOD CHAIN");
+  const [theme, setTheme] = useState(0);
+  const [layout, setLayout] = useState<"poster" | "closeup">("poster");
+  const [background, setBackground] = useState<string | null>(null);
+  const [noise, setNoise] = useState(0);
+  const [burst, setBurst] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    const saved = Number(localStorage.getItem("plimzo-noise") || 0);
-    const timer = window.setTimeout(() => setNoise(Number.isFinite(saved) ? saved : 0), 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const makeNoise = () => {
-    const next = Math.min(noise + 1, 100);
-    setNoise(next);
-    localStorage.setItem("plimzo-noise", String(next));
-    setBurst(Array.from({ length: 8 }, (_, i) => Date.now() + i));
-    navigator.vibrate?.(24);
-    window.setTimeout(() => setBurst([]), 650);
-  };
-
-  const phase = milestones.find((item) => noise < item.at) ?? milestones[3];
-
-  const downloadMeme = () => {
+  const drawMeme = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const mascot = new window.Image();
-    mascot.onload = () => {
-      const size = 1080;
-      canvas.width = size; canvas.height = size;
+    const size = 1080;
+    canvas.width = size; canvas.height = size;
+    const paint = () => {
+      const colors = themes[theme].colors;
       const gradient = ctx.createLinearGradient(0, 0, size, size);
-      gradient.addColorStop(0, "#ccff16"); gradient.addColorStop(.55, "#91e80b"); gradient.addColorStop(1, "#7428d9");
+      colors.forEach((color, i) => gradient.addColorStop(i / (colors.length - 1), color));
       ctx.fillStyle = gradient; ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = "rgba(20,9,35,.12)";
-      for (let i = -200; i < size; i += 140) ctx.fillRect(i, 0, 44, size);
-      const ratio = Math.min(680 / mascot.width, 700 / mascot.height);
-      const w = mascot.width * ratio, h = mascot.height * ratio;
-      ctx.drawImage(mascot, (size - w) / 2, 260, w, h);
-      ctx.textAlign = "center"; ctx.fillStyle = "#160d25"; ctx.font = "900 82px Arial Black, Arial";
-      ctx.lineWidth = 18; ctx.strokeStyle = "#eaff9a";
-      ctx.strokeText(memeText.toUpperCase(), size / 2, 130); ctx.fillText(memeText.toUpperCase(), size / 2, 130);
-      ctx.font = "800 34px Arial"; ctx.fillText("PLIMZO  •  $PLIMZO", size / 2, 1020);
-      const link = document.createElement("a"); link.download = "plimzo-meme.png"; link.href = canvas.toDataURL("image/png"); link.click();
+      ctx.globalAlpha = .16; ctx.fillStyle = "#0a0610";
+      for (let x = -size; x < size * 2; x += 145) { ctx.save(); ctx.translate(x, 0); ctx.rotate(-.18); ctx.fillRect(0, -200, 38, size * 1.5); ctx.restore(); }
+      ctx.globalAlpha = 1;
     };
-    mascot.src = "/assets/plimzo.webp";
-  };
+    const drawCharacter = () => {
+      const mascot = new window.Image();
+      mascot.onload = () => {
+        const targetW = layout === "poster" ? 700 : 930;
+        const ratio = targetW / mascot.width;
+        const w = mascot.width * ratio, h = mascot.height * ratio;
+        const x = (size - w) / 2, y = layout === "poster" ? 285 : 245;
+        ctx.shadowColor = "rgba(20,0,40,.55)"; ctx.shadowBlur = 38; ctx.shadowOffsetY = 25;
+        ctx.drawImage(mascot, x, y, w, h); ctx.shadowColor = "transparent";
+        ctx.textAlign = "center"; ctx.lineJoin = "round";
+        const fontSize = headline.length > 24 ? 64 : 82;
+        ctx.font = `900 ${fontSize}px Arial Black, Arial`; ctx.lineWidth = 20; ctx.strokeStyle = "rgba(11,6,18,.92)"; ctx.fillStyle = "#f4ffdd";
+        ctx.strokeText(headline.toUpperCase(), size / 2, 125, 970); ctx.fillText(headline.toUpperCase(), size / 2, 125, 970);
+        ctx.font = "800 29px Arial"; ctx.letterSpacing = "3px"; ctx.fillStyle = "#f5ffcc"; ctx.strokeStyle = "#160d25"; ctx.lineWidth = 10;
+        ctx.strokeText(footer.toUpperCase(), size / 2, 1022, 930); ctx.fillText(footer.toUpperCase(), size / 2, 1022, 930);
+      };
+      mascot.src = "/assets/plimzo.webp";
+    };
+    if (background) {
+      const bg = new window.Image();
+      bg.onload = () => {
+        const scale = Math.max(size / bg.width, size / bg.height);
+        const w = bg.width * scale, h = bg.height * scale;
+        ctx.drawImage(bg, (size - w) / 2, (size - h) / 2, w, h);
+        const wash = ctx.createLinearGradient(0, 0, 0, size); wash.addColorStop(0, "rgba(20,6,30,.28)"); wash.addColorStop(1, "rgba(25,5,45,.56)"); ctx.fillStyle = wash; ctx.fillRect(0, 0, size, size);
+        drawCharacter();
+      };
+      bg.src = background;
+    } else { paint(); drawCharacter(); }
+  }, [background, footer, headline, layout, theme]);
 
-  const share = () => {
-    const text = encodeURIComponent(`I made ${noise}% noise and woke up Plimzo.\n\nSmall creature. Big noise. $PLIMZO`);
-    window.open(`https://x.com/intent/post?text=${text}`, "_blank", "noopener,noreferrer");
+  useEffect(() => { drawMeme(); }, [drawMeme]);
+
+  const uploadBackground = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader(); reader.onload = () => setBackground(String(reader.result)); reader.readAsDataURL(file);
   };
+  const randomize = () => { setHeadline(lines[Math.floor(Math.random() * lines.length)]); setTheme((theme + 1) % themes.length); };
+  const download = () => { drawMeme(); window.setTimeout(() => { const link = document.createElement("a"); link.download = "plimzo-meme.png"; link.href = canvasRef.current?.toDataURL("image/png") ?? ""; link.click(); }, 120); };
+  const makeNoise = () => { setNoise((n) => n + 1); setBurst(true); navigator.vibrate?.(25); window.setTimeout(() => setBurst(false), 560); };
+  const share = () => window.open(`https://x.com/intent/post?text=${encodeURIComponent(`${headline}\n\nMade in the PLIMZO Meme Studio. $PLIMZO`)}`, "_blank", "noopener,noreferrer");
 
   return <main>
-    <nav className="nav shell" aria-label="Primary navigation">
-      <a className="brand" href="#top" aria-label="Plimzo home"><span className="brand-mark">P</span><span>PLIMZO</span></a>
-      <div className={`nav-links ${menuOpen ? "open" : ""}`}>
-        <a href="#story" onClick={() => setMenuOpen(false)}>Story</a><a href="#lab" onClick={() => setMenuOpen(false)}>Meme Lab</a><a href="#token" onClick={() => setMenuOpen(false)}>Token</a><button className="pill ghost" type="button" disabled>Buy soon</button>
-      </div>
-      <button className="menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X /> : <Menu />}</button>
+    <nav className="nav shell">
+      <a className="brand" href="#top"><span>P</span>PLIMZO</a>
+      <div className={`navlinks ${menuOpen ? "open" : ""}`}><a href="#studio">Meme Studio</a><a href="#story">Story</a><a href="#token">Token</a><button disabled>BUY SOON</button></div>
+      <button className="menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X/> : <Menu/>}</button>
     </nav>
 
     <section id="top" className="hero shell">
-      <div className="hero-copy">
-        <p className="eyebrow"><span /> A NEW CREATURE ON ROBINHOOD CHAIN</p>
-        <h1>MAKE<br /><i>SOME</i><br />NOISE.</h1>
-        <p className="intro">Plimzo is a tiny creature powered by memes, laughter and community noise. Every post wakes him up.</p>
-        <div className="hero-actions"><button className="noise-button" onClick={makeNoise} type="button"><span>MAKE SOME NOISE</span><Sparkles size={20} /></button><button className="round-button" onClick={share} aria-label="Share on X"><Share2 /></button></div>
-        <p className="microcopy">Tap it. Plimzo remembers your noise.</p>
+      <div className="hero-copy"><div className="status"><i/> LIVE ON THE INTERNET</div><h1>Small<br/>creature.<br/><em>Big noise.</em></h1><p>Meet Plimzo—the neon spark turning every timeline into a playground. Create something loud and send it into the feed.</p><div className="actions"><a className="primary" href="#studio"><Sparkles/> CREATE A MEME</a><button className="secondary" onClick={makeNoise}><Zap/> PLIM! <b>{noise || ""}</b></button></div></div>
+      <div className={`hero-art ${burst ? "burst" : ""}`}><div className="halo"/><div className="marquee a">PLIM! • PLIM! • PLIM! •</div><div className="marquee b">MAKE SOME NOISE •</div><Image priority src="/assets/plimzo.webp" width={900} height={974} alt="Plimzo, the electric lime meme creature"/><div className="spark one">✦</div><div className="spark two">✦</div><div className="spark three">✦</div></div>
+    </section>
+
+    <section id="studio" className="studio-wrap"><div className="shell studio-head"><div><span className="kicker">PLIMZO TOOL 01</span><h2>Meme Studio</h2></div><p>Create a ready-to-post 1080×1080 meme. Use a neon theme or drop in your own image—everything stays in your browser.</p></div>
+      <div className="shell studio">
+        <div className="canvas-wrap"><canvas ref={canvasRef} aria-label="Live meme preview"/><div className="canvas-badge">LIVE PREVIEW</div></div>
+        <div className="controls">
+          <div className="field"><label htmlFor="headline">HEADLINE</label><input id="headline" maxLength={38} value={headline} onChange={(e)=>setHeadline(e.target.value)} /></div>
+          <div className="field"><label htmlFor="footer">FOOTER</label><input id="footer" maxLength={42} value={footer} onChange={(e)=>setFooter(e.target.value)} /></div>
+          <div className="field"><label>NEON PALETTE</label><div className="themes">{themes.map((item,i)=><button key={item.name} className={theme===i?"selected":""} onClick={()=>{setTheme(i);setBackground(null)}} aria-label={item.name} style={{background:`linear-gradient(135deg,${item.colors.join(",")})`}}/>)}</div></div>
+          <div className="row"><div className="field"><label>CHARACTER</label><div className="segmented"><button className={layout==="poster"?"active":""} onClick={()=>setLayout("poster")}>FULL</button><button className={layout==="closeup"?"active":""} onClick={()=>setLayout("closeup")}>CLOSE</button></div></div><div className="field"><label>CUSTOM BACKGROUND</label><label className="upload"><ImagePlus/> UPLOAD<input type="file" accept="image/*" onChange={uploadBackground}/></label></div></div>
+          {background && <button className="remove-bg" onClick={()=>setBackground(null)}>Remove uploaded background</button>}
+          <div className="tool-actions"><button onClick={randomize}><RefreshCw/> RANDOMIZE</button><button onClick={share}><Share2/> SHARE ON X</button><button className="download" onClick={download}><Download/> DOWNLOAD 1080 × 1080 PNG</button></div>
+          <small>No sign-up. Your uploaded image never leaves your device.</small>
+        </div>
       </div>
-      <div className="mascot-stage" aria-live="polite">
-        <div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="sound-word word-one">PLIM!</div><div className="sound-word word-two">ZO!</div>
-        {burst.map((id, i) => <i key={id} className="spark" style={{ "--i": i } as React.CSSProperties}>✦</i>)}
-        <Image priority width={900} height={974} className={`mascot ${burst.length ? "bounce" : ""}`} src="/assets/plimzo.webp" alt="Plimzo, a joyful lime-green creature with huge ears and a lightning tuft" />
-        <div className="level-card"><div><span>YOUR NOISE</span><strong>{noise}%</strong></div><div className="meter"><i style={{ width: `${noise}%` }} /></div><small>{phase.face} &nbsp; {phase.label}</small></div>
-      </div>
-      <a className="scroll-cue" href="#story"><ArrowDown size={18} /> Meet the creature</a>
     </section>
 
-    <section id="story" className="story-section">
-      <div className="shell story-grid"><div className="section-number">01 / ORIGIN</div><div><p className="eyebrow purple"><span /> THE FIRST SOUND</p><h2>Born from a<br />tiny <em>plim.</em></h2></div><div className="story-copy"><p>Plimzo lived in the quietest corner of the internet—until one strange meme made a tiny sound.</p><p>“Plim.”</p><p>He followed it, found the timeline, and discovered that every laugh, post and remix made his lightning tuft glow brighter.</p></div></div>
-      <div className="ticker" aria-hidden="true"><div>POST IT ✦ REMIX IT ✦ PLIM IT ✦ POST IT ✦ REMIX IT ✦ PLIM IT ✦ POST IT ✦ REMIX IT ✦ PLIM IT ✦</div></div>
-    </section>
-
-    <section id="lab" className="lab-section shell">
-      <div className="lab-heading"><div className="section-number">02 / MEME LAB</div><h2>Give Plimzo<br /><em>a voice.</em></h2><p>Pick a line, generate your square meme and drop it into the timeline.</p></div>
-      <div className="meme-card"><div className="meme-preview"><div className="preview-text">{memeText}</div><Image width={900} height={974} src="/assets/plimzo.webp" alt="" /><span>PLIMZO • $PLIMZO</span></div><div className="meme-controls"><label>CHOOSE THE NOISE</label><div className="choices">{memeLines.map((line) => <button key={line} className={memeText === line ? "active" : ""} onClick={() => setMemeText(line)}>{line}</button>)}</div><button className="download-button" onClick={downloadMeme}><Download size={20} /> DOWNLOAD MEME</button></div><canvas ref={canvasRef} hidden /></div>
-    </section>
-
-    <section id="token" className="token-section"><div className="shell token-grid"><div><div className="section-number light">03 / THE TOKEN</div><h2>Small creature.<br /><em>Big noise.</em></h2></div><div className="token-panel"><div><span>NAME</span><strong>PLIMZO</strong></div><div><span>TICKER</span><strong>$PLIMZO</strong></div><div><span>NETWORK</span><strong>ROBINHOOD CHAIN</strong></div><div className="contract-row"><span>CONTRACT</span><strong>COMING SOON</strong><button disabled aria-label="Contract unavailable"><Copy size={18}/></button></div></div></div></section>
-    <footer className="footer shell"><div className="footer-face">P</div><div><strong>PLIMZO</strong><p>A tiny creature powered by pure community noise.</p></div><div className="disclaimer">Independent meme project. Not affiliated with Robinhood Markets, Inc.<br />No promises. Just Plimzo.</div></footer>
+    <section id="story" className="story shell"><span className="kicker">WHY COME BACK?</span><div><h2>Fresh memes.<br/>Zero friction.</h2><div><p>The site is Plimzo’s community content engine: anyone can turn the mascot—or their own background—into a polished post in seconds.</p><p><strong>Create → download → post → repeat.</strong></p><p>After launch, verified token data, community templates and weekly meme challenges can plug into the same studio.</p><a href="/assets/plimzo.webp" download>DOWNLOAD TRANSPARENT PLIMZO <Download/></a></div></div></section>
+    <div className="tape"><span>CREATE IT ✦ DOWNLOAD IT ✦ POST IT ✦ MAKE SOME NOISE ✦ CREATE IT ✦ DOWNLOAD IT ✦ POST IT ✦ MAKE SOME NOISE ✦</span></div>
+    <section id="token" className="token shell"><div><span className="kicker">THE TOKEN</span><h2>$PLIMZO</h2><p>Pure community energy on Robinhood Chain.</p></div><dl><div><dt>NETWORK</dt><dd>ROBINHOOD CHAIN</dd></div><div><dt>CONTRACT</dt><dd>COMING SOON</dd></div><div><dt>STATUS</dt><dd>WAKING UP</dd></div></dl></section>
+    <footer className="shell"><a className="brand" href="#top"><span>P</span>PLIMZO</a><p>Independent meme project. Not affiliated with Robinhood Markets, Inc.</p><b>MAKE SOME NOISE.</b></footer>
   </main>;
 }
